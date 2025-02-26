@@ -1,0 +1,145 @@
+<!-- templates/base.html -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Digit AI{% endblock %}</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css">
+    <script src="https://unpkg.com/htmx.org@1.9.2"></script>
+    <script src="https://unpkg.com/alpinejs@3.13.0/dist/cdn.min.js" defer></script>
+    {% block extra_css %}{% endblock %}
+</head>
+<body class="bg-gray-100">
+    <div class="min-h-screen flex flex-col">
+        <!-- Top Navigation Bar -->
+        <header class="bg-white shadow-sm">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between h-16">
+                    <div class="flex">
+                        <div class="flex-shrink-0 flex items-center">
+                            <img class="h-8 w-auto" src="/static/images/logo.svg" alt="Digit AI">
+                        </div>
+                        <nav class="ml-6 flex space-x-8">
+                            <a href="{% url 'projects:list' %}" class="border-indigo-500 text-gray-900 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                                Projects
+                            </a>
+                            <a href="{% url 'agents:list' %}" class="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                                Agents
+                            </a>
+                            <a href="{% url 'files:list' %}" class="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                                Files
+                            </a>
+                        </nav>
+                    </div>
+                    <div class="flex items-center">
+                        <div class="ml-4 flex items-center md:ml-6">
+                            <!-- Profile dropdown -->
+                            <div class="ml-3 relative" x-data="{ open: false }">
+                                <div>
+                                    <button @click="open = !open" class="max-w-xs bg-white flex items-center text-sm rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                                        <img class="h-8 w-8 rounded-full" src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80" alt="">
+                                    </button>
+                                </div>
+                                <div x-show="open" @click.away="open = false" class="origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg py-1 bg-white ring-1 ring-black ring-opacity-5 focus:outline-none">
+                                    <a href="#" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Your Profile</a>
+                                    <a href="#" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Settings</a>
+                                    <a href="#" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Sign out</a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="flex-grow">
+            {% block content %}{% endblock %}
+        </main>
+
+        <!-- Footer -->
+        <footer class="bg-white">
+            <div class="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8">
+                <p class="text-center text-sm text-gray-500">
+                    &copy; 2025 Digit AI. All rights reserved.
+                </p>
+            </div>
+        </footer>
+    </div>
+
+    {% block extra_js %}{% endblock %}
+</body>
+</html>
+
+<!-- templates/dashboard.html -->
+{% extends 'base.html' %}
+{% load math_filters %}
+
+{% block title %}Dashboard - Digit AI{% endblock %}
+
+{% block content %}
+<div class="py-6">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <h1 class="text-2xl font-semibold text-gray-900">Dashboard</h1>
+    </div>
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex flex-wrap -mx-4">
+            <!-- Left Panel: Navigation -->
+            <div class="w-1/4 px-4">
+                <div class="bg-white shadow rounded-lg p-4 mt-4">
+                    <h2 class="text-lg font-medium text-gray-900">Projects</h2>
+                    <ul class="mt-4 space-y-2">
+                        {% for project in projects %}
+                        <li>
+                            <a href="{% url 'projects:detail' project.id %}" class="block px-3 py-2 rounded-md text-sm font-medium {% if project.id == current_project.id %}bg-indigo-100 text-indigo-700{% else %}text-gray-700 hover:bg-gray-100{% endif %}">
+                                {{ project.name }}
+                            </a>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    <div class="mt-6">
+                        <a href="{% url 'projects:create' %}" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                            New Project
+                        </a>
+                    </div>
+
+                    <h2 class="text-lg font-medium text-gray-900 mt-8">Budget</h2>
+                    <div class="mt-2 bg-green-50 rounded-md p-3">
+                        <div class="text-sm text-gray-700">
+                            <p><strong>Budget:</strong> ${{ current_project.budget }}</p>
+                            <p><strong>Used:</strong> ${{ current_project.budget_spent }}</p>
+                        </div>
+                        <div class="mt-2 w-full bg-gray-200 rounded-full h-2.5">
+                            <div class="bg-blue-600 h-2.5 rounded-full" style="width: {{ current_project.budget_spent|div:current_project.budget|mul:100 }}%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Middle Panel: Chat -->
+            <div class="w-2/4 px-4">
+                <div class="bg-white shadow rounded-lg p-4 mt-4 h-[calc(100vh-200px)] flex flex-col">
+                    <h2 class="text-lg font-medium text-gray-900">{{ current_project.name }}</h2>
+                    
+                    <!-- Chat Messages -->
+                    <div id="chat-messages" class="flex-grow overflow-y-auto mt-4 space-y-4">
+                        <!-- Messages will be dynamically added here -->
+                    </div>
+                    
+                    <!-- Chat Input -->
+                    <div class="mt-4 border-t pt-4">
+                        <form id="message-form" class="flex">
+                            <input type="text" id="message-input" class="flex-grow rounded-l-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" placeholder="Type your message...">
+                            <button type="submit" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-r-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                                Send
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
