@@ -24,10 +24,11 @@
                         {% endfor %}
                     </ul>
                     <div class="mt-6">
-                        <a href="{% url 'projects:create' %}" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700">
+                        <a href="{% url 'projects:create' %}" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
                             New Project
                         </a>
                     </div>
+
                     <h2 class="text-lg font-medium text-gray-900 mt-8">Budget</h2>
                     <div class="mt-2 bg-green-50 rounded-md p-3">
                         <div class="text-sm text-gray-700">
@@ -35,35 +36,114 @@
                             <p><strong>Used:</strong> ${{ current_project.budget_spent }}</p>
                         </div>
                         <div class="mt-2 w-full bg-gray-200 rounded-full h-2.5">
-                            <div class="bg-blue-600 h-2.5 rounded-full" style="width: {{ current_project.budget_spent|div:current_project.budget|mul:100 }}%"></div>
+                            <div class="bg-blue-600 h-2.5 rounded-full" style="width: {% if current_project.budget > 0 %}{{ current_project.budget_spent|div:current_project.budget|mul:100 }}{% else %}0{% endif %}%"></div>
                         </div>
                     </div>
                 </div>
             </div>
+
             <!-- Middle Panel: Chat -->
             <div class="w-2/4 px-4">
                 <div class="bg-white shadow rounded-lg p-4 mt-4 h-[calc(100vh-200px)] flex flex-col">
                     <h2 class="text-lg font-medium text-gray-900">{{ current_project.name }}</h2>
+                    
                     <!-- Chat Messages -->
                     <div id="chat-messages" class="flex-grow overflow-y-auto mt-4 space-y-4">
-                        <!-- ...existing dynamic messages... -->
+                        <!-- Messages will be dynamically added here -->
                     </div>
+                    
                     <!-- Chat Input -->
                     <div class="mt-4 border-t pt-4">
                         <form id="message-form" class="flex">
-                            <input type="text" id="message-input" class="flex-grow rounded-l-md border-gray-300 shadow-sm" placeholder="Type your message...">
-                            <button type="submit" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-r-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700">
+                            {% csrf_token %}
+                            <input type="text" id="message-input" class="flex-grow rounded-l-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" placeholder="Type your message...">
+                            <button type="submit" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-r-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
                                 Send
                             </button>
                         </form>
                     </div>
                 </div>
             </div>
-            <!-- Right Panel: (Optional additional info) -->
+
+            <!-- Right Panel: Agent Information -->
             <div class="w-1/4 px-4">
-                <!-- ...existing code or placeholder for additional panel... -->
+                <div class="bg-white shadow rounded-lg p-4 mt-4">
+                    <h2 class="text-lg font-medium text-gray-900">Active Agents</h2>
+                    <div id="agent-list" class="mt-4">
+                        {% for agent in current_project.agent_set.all %}
+                        <div class="p-3 bg-gray-50 rounded-md mb-2">
+                            <div class="flex items-center">
+                                <div class="w-2 h-2 rounded-full {% if agent.status == 'idle' %}bg-green-500{% elif agent.status == 'working' %}bg-yellow-500{% elif agent.status == 'error' %}bg-red-500{% else %}bg-blue-500{% endif %} mr-2"></div>
+                                <p class="text-sm font-medium text-gray-700">{{ agent.name }}</p>
+                            </div>
+                            <p class="text-xs text-gray-500 mt-1">{{ agent.get_status_display }}</p>
+                            {% if agent.current_task %}
+                            <p class="text-xs italic mt-1">{{ agent.current_task|truncatechars:50 }}</p>
+                            {% endif %}
+                        </div>
+                        {% empty %}
+                        <p class="text-sm text-gray-500">No agents are active for this project.</p>
+                        {% endfor %}
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // WebSocket connection setup
+    document.addEventListener('DOMContentLoaded', function() {
+        const projectId = {{ current_project.id }};
+        const wsScheme = window.location.protocol === 'https:' ? 'wss' : 'ws';
+        const chatSocket = new WebSocket(`${wsScheme}://${window.location.host}/ws/project/${projectId}/`);
+        const messageContainer = document.getElementById('chat-messages');
+        const messageForm = document.getElementById('message-form');
+        const messageInput = document.getElementById('message-input');
+
+        chatSocket.onmessage = function(e) {
+            const data = JSON.parse(e.data);
+            addMessageToChat(data.message, data.sender);
+        };
+
+        chatSocket.onclose = function(e) {
+            console.error('Chat socket closed unexpectedly');
+        };
+
+        messageForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const message = messageInput.value;
+            if (message) {
+                chatSocket.send(JSON.stringify({
+                    'message': message,
+                    'project_id': projectId
+                }));
+                addMessageToChat(message, 'You');
+                messageInput.value = '';
+            }
+        });
+
+        function addMessageToChat(message, sender) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = sender === 'You' ? 'ml-auto bg-indigo-100 p-3 rounded-lg max-w-xs' : 'bg-gray-100 p-3 rounded-lg max-w-xs';
+            
+            const senderSpan = document.createElement('span');
+            senderSpan.className = 'font-bold text-xs text-gray-700';
+            senderSpan.textContent = sender;
+            
+            const messageP = document.createElement('p');
+            messageP.className = 'text-sm';
+            messageP.textContent = message;
+            
+            messageDiv.appendChild(senderSpan);
+            messageDiv.appendChild(messageP);
+            messageContainer.appendChild(messageDiv);
+            
+            // Scroll to the latest message
+            messageContainer.scrollTop = messageContainer.scrollHeight;
+        }
+    });
+</script>
 {% endblock %}
